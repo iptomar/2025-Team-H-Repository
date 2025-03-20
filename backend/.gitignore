@@ -1,0 +1,11 @@
+*
+
+!.gitignore
+
+!pyproject.toml
+!uv.lock
+
+!app/
+!app/**
+
+!*.py
