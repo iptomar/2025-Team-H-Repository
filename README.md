@@ -19,7 +19,7 @@ Example:
 $ sudo mariadb
 MariaDB [(none)]> create database horarios;
 MariaDB [(none)]> create user 'username'@'localhost' identified by 'password';
-MariaDB [(none)]> grant all privileges on horarios.* to 'admin'@'localhost';
+MariaDB [(none)]> grant all privileges on horarios.* to 'username'@'localhost';
 MariaDB [(none)]> flush privileges;
 MariaDB [(none)]> exit;
 ```
