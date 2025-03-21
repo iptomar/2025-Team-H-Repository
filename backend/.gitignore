@@ -8,4 +8,6 @@
 !app/
 !app/**
 
+__pycache__/
+
 !*.py
