@@ -9,7 +9,7 @@
 ### Backend
 Install the python libraries.
 ```sh
-uv sync
+$ uv sync
 ```
 
 Create a database and a user with permissions on it.
@@ -30,4 +30,28 @@ Example:
 ```env
 DATABASE_URL=mariadb+pymysql://username:password@localhost:3306/horarios
 SECRET_KEY=your-secret-key-here  # for jwt tokens. not used yet, you can skip this
+```
+
+Run the server:
+```sh
+$ uvicorn app.main:app --reload
+```
+The `--reload` flag is optional, it will just make it so that when you update a file, the server will automatically update,
+
+### Frontend
+
+Install the dependencies.
+```sh
+bun install
+```
+
+Run the project in development mode, and open it in the browser.
+```sh
+$ bun dev
+
+  VITE v6.2.2  ready in 1068 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
 ```
