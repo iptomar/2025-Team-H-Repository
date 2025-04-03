@@ -35,6 +35,8 @@ SECRET_KEY=your-secret-key-here  # for jwt tokens. not used yet, you can skip th
 Run the server:
 ```sh
 $ uvicorn app.main:app --reload
+on windows use:
+python -m uvicorn app.main:app --reload
 ```
 The `--reload` flag is optional, it will just make it so that when you update a file, the server will automatically update,
 
