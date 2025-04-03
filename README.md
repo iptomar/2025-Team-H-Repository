@@ -31,7 +31,10 @@ Example:
 DATABASE_URL=mariadb+pymysql://username:password@localhost:3306/horarios
 SECRET_KEY=your-secret-key-here  # for jwt tokens. not used yet, you can skip this
 ```
-
+Create a virtual environment:
+```sh
+windows: .venv\Scripts\activate
+```
 Run the server:
 ```sh
 $ uvicorn app.main:app --reload
