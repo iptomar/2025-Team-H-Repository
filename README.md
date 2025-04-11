@@ -46,7 +46,7 @@ The `--reload` flag is optional, it will just make it so that when you update a 
 
 Install the dependencies.
 ```sh
-bun install
+$ bun install
 ```
 
 Run the project in development mode, and open it in the browser.
