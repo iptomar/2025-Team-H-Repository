@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.database import Base, engine
 from app.routes import auth
+from app.routes import timetables
 from typing import Dict
 
 app = FastAPI(
@@ -12,6 +13,7 @@ app = FastAPI(
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
+app.include_router(timetables.router)
 
 
 @app.get("/")
