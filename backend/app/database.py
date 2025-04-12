@@ -1,21 +1,25 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from typing import Generator
-import os
+from sqlmodel import SQLModel, create_engine
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
-
-def get_db() -> Generator:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Database setup function
+def setup_database(create_tables: bool = False):
+    """
+    Set up the database connection.
+    
+    Args:
+        create_tables: If True, create all tables in the database
+    
+    Returns:
+        SQLAlchemy engine
+    """
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    
+    if create_tables:
+        SQLModel.metadata.create_all(engine)
+    
+    return engine
