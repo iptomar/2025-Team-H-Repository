@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.database import setup_database
 from app.routes import auth
+from app.routes import classes
 from sqlmodel import Session
 from typing import Dict
 
@@ -14,7 +15,7 @@ engine = setup_database(True)
 
 with Session(engine) as session:
     app.include_router(auth.router)
-
+    app.include_router(classes.router)
 
     @app.get("/")
     def read_root() -> Dict[str, str]:
