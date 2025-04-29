@@ -1,10 +1,13 @@
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import SQLModel, create_engine, Session
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Create the database engine
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # Database setup function
 def setup_database(create_tables: bool = False):
@@ -17,9 +20,17 @@ def setup_database(create_tables: bool = False):
     Returns:
         SQLAlchemy engine
     """
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
-    
     if create_tables:
         SQLModel.metadata.create_all(engine)
-    
     return engine
+
+# Dependency to get a database session
+def get_session():
+    """
+    Provide a database session for dependency injection.
+    
+    Yields:
+        Session: A SQLModel session
+    """
+    with Session(engine) as session:
+        yield session
