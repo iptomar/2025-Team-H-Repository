@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select  # Use sqlmodel instead of sqlalchemy.orm
-from app.database import get_session  # Import from app.database
+from app.database import get_session
 from app.models import Class as ClassModel
 from app.schemas import ClassCreate, ClassUpdate, ClassResponse
 
