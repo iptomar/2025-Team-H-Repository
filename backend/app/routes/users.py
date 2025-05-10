@@ -1,51 +1,67 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends
+from sqlmodel import Session, select
+from app.database import get_session
+from app.models import User as UserModel
+from app.schemas import UserCreate, UserUpdate, UserResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/users", tags=["users"])
 
-# Mock database
-users_db = []
+@router.get("/", response_model=list[UserResponse])
+def read_users(skip: int = 0, limit: int = 100, session: Session = Depends(get_session)):
+    return session.exec(select(UserModel).offset(skip).limit(limit)).all()
 
-# User model
-class User(BaseModel):
-    id: int
-    name: str
-    email: str
 
-# Get all users
-@router.get("/users", response_model=List[User])
-async def get_users():
-    return users_db
-
-# Get a user by ID
-@router.get("/users/{user_id}", response_model=User)
-async def get_user(user_id: int):
-    user = next((user for user in users_db if user["id"] == user_id), None)
+@router.get("/{user_id}", response_model=UserResponse)
+def read_user(user_id: int, session: Session = Depends(get_session)):
+    user = session.get(UserModel, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-# Create a new user
-@router.post("/users", response_model=User)
-async def create_user(user: User):
-    if any(u["id"] == user.id for u in users_db):
-        raise HTTPException(status_code=400, detail="User with this ID already exists")
-    users_db.append(user.dict())
+
+@router.post("/", response_model=UserResponse)
+def create_user(user_in: UserCreate, session: Session = Depends(get_session)):
+    existing_user = session.exec(select(UserModel).where(UserModel.username == user_in.username)).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    hashed_password = pwd_context.hash(user_in.password)
+    user_obj = UserModel(
+        username=user_in.username,
+        password_hash=hashed_password,
+        role=user_in.role,
+        school_id=user_in.school_id,
+        course_id=user_in.course_id,
+    )
+    session.add(user_obj)
+    session.commit()
+    session.refresh(user_obj)
+    return user_obj
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+def update_user(user_id: int, user_in: UserUpdate, session: Session = Depends(get_session)):
+    user = session.get(UserModel, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    update_data = user_in.dict(exclude_unset=True)
+    if "password" in update_data:
+        update_data["password_hash"] = pwd_context.hash(update_data.pop("password"))
+
+    for key, value in update_data.items():
+        setattr(user, key, value)
+
+    session.commit()
+    session.refresh(user)
     return user
 
-# Update a user
-@router.put("/users/{user_id}", response_model=User)
-async def update_user(user_id: int, updated_user: User):
-    for index, user in enumerate(users_db):
-        if user["id"] == user_id:
-            users_db[index] = updated_user.dict()
-            return updated_user
-    raise HTTPException(status_code=404, detail="User not found")
 
-# Delete a user
-@router.delete("/users/{user_id}")
-async def delete_user(user_id: int):
-    global users_db
-    users_db = [user for user in users_db if user["id"] != user_id]
-    return {"message": "User deleted successfully"}
+@router.delete("/{user_id}")
+def delete_user(user_id: int, session: Session = Depends(get_session)):
+    user = session.get(UserModel, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    session.delete(user)
+    session.commit()
+    return {"ok": True}
