@@ -80,6 +80,7 @@ class User(Base):
     role          = Column(SQLEnum(UserRole), nullable=False)
     school_id     = Column(Integer, ForeignKey("schools.school_id"), nullable=True)
     course_id     = Column(Integer, ForeignKey("courses.course_id"), nullable=True)
+    token         = Column(String(255), nullable=True, unique=True)
 
     # Relationships will be defined from other tables
     taught_classes = relationship(
