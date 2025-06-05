@@ -515,6 +515,18 @@ class Approval(Base):
     )
 
 
+class ActionLog(Base):
+    __tablename__ = "action_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    action = Column(String(255), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    description = Column(Text)
+
+    user = relationship("User")
+
+
 # Database setup function
 def setup_database(db_url: str, create_tables: bool = False):
     """
