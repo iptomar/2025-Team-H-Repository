@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from datetime import date, time
+from datetime import date, time , datetime
 from typing import Optional, List
 from enum import Enum
 
@@ -56,6 +56,23 @@ class ClassUpdate(BaseModel):
 # Schema for response
 class ClassResponse(ClassBase):
     class_id: int
+
+    class Config:
+        orm_mode = True
+
+
+# schema ActionLog (for logging user actions)
+class ActionLogBase(BaseModel):
+    action: str
+    details: Optional[str] = None
+
+class ActionLogCreate(ActionLogBase):
+    user_id: int
+
+class ActionLogResponse(ActionLogBase):
+    id: int
+    user_id: int
+    timestamp: datetime
 
     class Config:
         orm_mode = True
