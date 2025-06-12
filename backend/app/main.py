@@ -3,6 +3,7 @@ from app.database import setup_database
 from app.routes import auth
 from app.routes import classes
 from app.routes import classgroups
+from app.routes import subject
 from sqlmodel import Session
 from typing import Dict
 
@@ -18,6 +19,8 @@ with Session(engine) as session:
     app.include_router(auth.router)
     app.include_router(classes.router)
     app.include_router(classgroups.router)
+    app.include_router(subject.router)
+
 
     @app.get("/")
     def read_root() -> Dict[str, str]:
