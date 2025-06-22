@@ -518,13 +518,13 @@ class Approval(Base):
 class ActionLog(Base):
     __tablename__ = "action_logs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    action = Column(String(255), nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    description = Column(Text)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # Primary key
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)  # User who performed the action
+    action = Column(String(255), nullable=False)  # Action description
+    timestamp = Column(DateTime, default=datetime.utcnow)  # Time of action
+    description = Column(Text)  # Optional detailed description
 
-    user = relationship("User")
+    user = relationship("User")  # Relationship to User
 
 
 # Database setup function
