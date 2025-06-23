@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "IPT Timetables API - Backend service for managing class schedules and user authentication"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -13,4 +13,5 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "sqlmodel>=0.0.24",
     "uvicorn>=0.34.0",
+    "python-multipart>=0.0.6",
 ]
