@@ -192,6 +192,8 @@ class Subject(Base):
     subject_id = Column(Integer, primary_key=True, autoincrement=True)
     name       = Column(String(100), nullable=False)
     course_id  = Column(Integer, ForeignKey("courses.course_id"), nullable=False)
+    weekly_required_hours = Column(Integer, nullable=False, default=2)
+
 
     # Relationships
     course       = relationship("Course", back_populates="subjects")
