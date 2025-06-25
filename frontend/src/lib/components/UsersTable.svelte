@@ -64,7 +64,7 @@
 	<div class="flex-1 p-8">
 		<div class="mb-6 flex items-center justify-between">
 			<!-- Search and Filter Bar -->
-			<div class="flex items-center justify-between">
+			<div class="mb-6 flex items-center justify-between">
 				<div class="relative w-64">
 					<Search
 						class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400"
