@@ -1,8 +1,8 @@
-from fastapi import FastAPI
-from app.database import setup_database
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
 from app.routes import auth
 from app.routes import classes
-from sqlmodel import Session
+from app.database import get_session, init_db
 from typing import Dict
 
 app = FastAPI(
@@ -11,12 +11,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
-engine = setup_database(True)
+# Run once to init database
+# init_db()
 
-with Session(engine) as session:
-    app.include_router(auth.router)
-    app.include_router(classes.router)
+app.include_router(auth.router)
+app.include_router(classes.router)
 
-    @app.get("/")
-    def read_root() -> Dict[str, str]:
-        return {"message": "Welcome to the FastAPI MariaDB Auth API"}
+@app.get("/")
+def read_root() -> Dict[str, str]:
+    return {"message": "Welcome to the FastAPI MariaDB Auth API"}
+
+@app.get("/example")
+def example_route(db: Session = Depends(get_session)) -> Dict[str, str]:
+    # Example: db.query(SomeModel).all()
+    return {"message": "This is an example route using the database session"}
