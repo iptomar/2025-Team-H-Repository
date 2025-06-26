@@ -1,36 +1,104 @@
-from sqlmodel import SQLModel, create_engine, Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 from dotenv import load_dotenv
 import os
+
+# Import the Base from your models
+# from app.models import Base
 
 load_dotenv()
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Create the database engine
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
 
-# Database setup function
-def setup_database(create_tables: bool = False):
-    """
-    Set up the database connection.
-    
-    Args:
-        create_tables: If True, create all tables in the database
-    
-    Returns:
-        SQLAlchemy engine
-    """
-    if create_tables:
-        SQLModel.metadata.create_all(engine)
-    return engine
+# Create engine
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,  # Verify connections before using
+    echo=False,  # Set to True for SQL query logging
+)
 
-# Dependency to get a database session
+# Create session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+# Dependency for FastAPI
 def get_session():
     """
-    Provide a database session for dependency injection.
-    
-    Yields:
-        Session: A SQLModel session
+    Database session dependency for FastAPI.
+    Usage: db: Session = Depends(get_session)
     """
-    with Session(engine) as session:
-        yield session
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# Initialize database tables
+def init_db():
+    """Create all tables in the database"""
+    from app.models import Base
+
+    Base.metadata.create_all(bind=engine)
+
+
+# Drop all tables (use with caution!)
+def drop_db():
+    """Drop all tables from the database"""
+    from app import models
+
+    models.Base.metadata.drop_all(bind=engine)
+
+
+def get_or_create(session: Session, model, defaults=None, **kwargs):
+    """
+    Get an object or create it if it doesn't exist.
+
+    Args:
+        session: Database session
+        model: SQLAlchemy model class
+        defaults: Dict of default values for creation
+        **kwargs: Lookup parameters
+
+    Returns:
+        tuple: (instance, created) where created is a boolean
+    """
+    instance = session.query(model).filter_by(**kwargs).one_or_none()
+    if instance:
+        return instance, False
+    else:
+        params = dict((k, v) for k, v in kwargs.items())
+        if defaults:
+            params.update(defaults)
+        instance = model(**params)
+        session.add(instance)
+        session.flush()
+        return instance, True
+
+
+# Create initial admin user
+def create_admin_user(username: str, password: str):
+    """Create an admin user if it doesn't exist"""
+    from . import models
+    from .api import hash_password
+
+    with get_session() as db:
+        admin, created = get_or_create(
+            db,
+            models.User,
+            defaults={
+                "password_hash": hash_password(password),
+                "role": models.UserRole.Administrator,
+            },
+            username=username,
+        )
+        if created:
+            print(f"Admin user '{username}' created successfully")
+        else:
+            print(f"Admin user '{username}' already exists")
+        return admin
