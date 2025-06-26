@@ -573,6 +573,8 @@
 
     const title = `${cadeira!.nome} (${grupo!.nome}) - ${professor!.nome} - ${sala!.nome}`;
 
+    let eventId = selectedEvent ? selectedEvent.id : tempEventId;
+
     if (selectedEvent) {
       // Editar evento existente
       selectedEvent.setProp('title', title);
@@ -584,6 +586,9 @@
       selectedEvent.setExtendedProp('cadeiraId', selectedCadeiraId);
       selectedEvent.setExtendedProp('groupId', selectedGrupoId);
       selectedEvent.setExtendedProp('isTempDragEvent', false); // Não é mais temporário
+
+      // Salva no localStorage
+      saveEventsToLocalStorage();
 
       showNotification('Agendamento editado com sucesso!', 'success');
     } else {
@@ -601,10 +606,11 @@
               eventToUpdate.setExtendedProp('cadeiraId', selectedCadeiraId);
               eventToUpdate.setExtendedProp('groupId', selectedGrupoId);
               eventToUpdate.setExtendedProp('isTempDragEvent', false); // Não é mais temporário
+              eventId = eventToUpdate.id;
           }
       } else {
           // Se não veio de drag-and-drop (e.g., clique em data)
-          calendar.addEvent({
+          const newEvent = calendar.addEvent({
               id: String(eventIdCounter++),
               title,
               start,
@@ -618,15 +624,54 @@
                   isTempDragEvent: false
               }
           });
+          eventId = newEvent?.id ?? null;
       }
       // AGORA A REMOÇÃO DA SIDEBAR ACONTECE APENAS AQUI, após o sucesso do saveEvent
       if (draggedAula && aulasNaoAtribuidas.some(aula => aula.id === draggedAula!.id)) {
         aulasNaoAtribuidas = aulasNaoAtribuidas.filter(aula => aula.id !== draggedAula!.id);
       }
+
+      // Salva no localStorage
+      saveEventsToLocalStorage();
+
       showNotification('Agendamento criado com sucesso!', 'success');
     }
     closeModal();
   }
+
+  // Salva todos os eventos do calendário no localStorage
+  function saveEventsToLocalStorage() {
+    if (!calendar) return;
+    const events = calendar.getEvents()
+      .filter(e => !e.extendedProps.isIndisponibilidade)
+      .map(e => ({
+        id: e.id,
+        title: e.title,
+        start: e.start?.toISOString(),
+        end: e.end?.toISOString(),
+        backgroundColor: e.backgroundColor,
+        extendedProps: e.extendedProps
+      }));
+    localStorage.setItem('timetableEvents', JSON.stringify(events));
+  }
+
+  // Carrega eventos do localStorage ao iniciar
+  onMount(() => {
+    const saved = localStorage.getItem('timetableEvents');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(ev => {
+            // Evita duplicar eventos já existentes (ex: initialEvents)
+            if (!calendar.getEventById(ev.id)) {
+              calendar.addEvent(ev);
+            }
+          });
+        }
+      } catch {}
+    }
+  });
 
   function deleteEvent() {
     if (selectedEvent) {
@@ -639,6 +684,7 @@
         }
       }
       selectedEvent.remove();
+      saveEventsToLocalStorage(); // Atualiza o localStorage após remover o evento
       showNotification('Agendamento excluído com sucesso.', 'success');
     }
     closeModal();

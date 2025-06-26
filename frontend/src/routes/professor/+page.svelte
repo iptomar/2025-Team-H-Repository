@@ -190,11 +190,13 @@
   }
 
   // --- Lógica de Sincronização entre Calendários ---
+  // Sincroniza indisponibilidade entre os dois calendários E salva/busca do localStorage
   function syncIndisponibilityToScheduleCalendar(indisp: Professor['indisponibilidades'][0], action: 'add' | 'update' | 'remove') {
     if (!calendarSchedule) return;
 
-    const eventIdInSchedule = `indisp-schedule-${indisp.id}`; // ID único para o evento no calendário de cima
+    const eventIdInSchedule = `indisp-schedule-${indisp.id}`;
 
+    // Atualiza o calendário de horário
     if (action === 'add') {
       calendarSchedule.addEvent({
         id: eventIdInSchedule,
@@ -207,7 +209,7 @@
         classNames: ['teacher-indisponibility'],
         extendedProps: {
           isIndisponibilidade: true,
-          originalIndispId: indisp.id // Para vincular ao ID original
+          originalIndispId: indisp.id
         }
       });
     } else if (action === 'update') {
@@ -216,7 +218,6 @@
         eventToUpdate.setProp('title', indisp.title);
         eventToUpdate.setStart(indisp.start);
         eventToUpdate.setEnd(indisp.end);
-        // Não muda cor ou display aqui, pois são fixos para indisponibilidades
       }
     } else if (action === 'remove') {
       const eventToRemove = calendarSchedule.getEventById(eventIdInSchedule);
@@ -224,7 +225,32 @@
         eventToRemove.remove();
       }
     }
+
+    // Sempre salva as indisponibilidades do professor no localStorage
+    try {
+      localStorage.setItem(
+        `indisponibilidades-${loggedInProfessor.id}`,
+        JSON.stringify(loggedInProfessor.indisponibilidades)
+      );
+    } catch (e) {
+      showNotification('Falha ao salvar no armazenamento local.', 'warning');
+    }
   }
+
+  // Ao carregar a página, tenta buscar indisponibilidades do localStorage
+  (() => {
+    try {
+      const stored = localStorage.getItem(`indisponibilidades-${loggedInProfessor.id}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          loggedInProfessor.indisponibilidades = parsed;
+        }
+      }
+    } catch (e) {
+      // ignora erro de parsing
+    }
+  })();
 
 
   // --- Lógica do Calendário de Indisponibilidades ---
@@ -287,6 +313,8 @@
       return;
     }
 
+    let updatedIndisps: Professor['indisponibilidades'];
+
     if (selectedIndisponibility) {
       // Editar indisponibilidade existente
       const originalIndispId = selectedIndisponibility.id;
@@ -296,6 +324,7 @@
       loggedInProfessor.indisponibilidades = loggedInProfessor.indisponibilidades.map(indisp =>
         indisp.id === originalIndispId ? updatedIndisp : indisp
       );
+      updatedIndisps = loggedInProfessor.indisponibilidades;
       // Atualiza o evento no calendário de indisponibilidades
       const eventToUpdate = calendarAvailability.getEventById(originalIndispId);
       if (eventToUpdate) {
@@ -312,7 +341,7 @@
       const newId = `indisp-${loggedInProfessor.id}-${indispIdCounter++}`;
       const newIndisp = { id: newId, start: start.toISOString(), end: end.toISOString(), title: indispTitle, type: indispType };
       loggedInProfessor.indisponibilidades.push(newIndisp); // Adiciona ao array mock
-      
+      updatedIndisps = loggedInProfessor.indisponibilidades;
       // Adiciona ao calendário de indisponibilidades
       calendarAvailability.addEvent({
         id: newId,
@@ -327,6 +356,18 @@
       syncIndisponibilityToScheduleCalendar(newIndisp, 'add');
       showNotification('Indisponibilidade adicionada com sucesso!', 'success');
     }
+
+    // Salva no localStorage
+    try {
+      localStorage.setItem(
+        `indisponibilidades-${loggedInProfessor.id}`,
+        JSON.stringify(updatedIndisps)
+      );
+    } catch (e) {
+      // fallback: notifica erro mas não impede fluxo
+      showNotification('Falha ao salvar no armazenamento local.', 'warning');
+    }
+
     closeIndisponibilityModal();
   }
 
@@ -342,6 +383,15 @@
       }
       // Sincroniza com o calendário de horário do professor
       syncIndisponibilityToScheduleCalendar(indispToDelete, 'remove');
+      // Atualiza o localStorage
+      try {
+        localStorage.setItem(
+          `indisponibilidades-${loggedInProfessor.id}`,
+          JSON.stringify(loggedInProfessor.indisponibilidades)
+        );
+      } catch (e) {
+        showNotification('Falha ao atualizar o armazenamento local.', 'warning');
+      }
       showNotification('Indisponibilidade excluída com sucesso!', 'success');
     }
     closeIndisponibilityModal();
