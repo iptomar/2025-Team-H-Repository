@@ -364,39 +364,74 @@
     // Get all events from the schedule calendar
     const events = calendarSchedule.getEvents();
 
-    // Prepare data for Excel
-    const excelData = events.map(event => {
-      const isIndisponibility = event.extendedProps.isIndisponibilidade || false;
-      const startDate = new Date(event.start!);
-      const endDate = new Date(event.end!);
+    // Determine the week range (Monday to Sunday)
+    const weekDays = [
+      { key: 1, label: 'Segunda' },
+      { key: 2, label: 'Terça' },
+      { key: 3, label: 'Quarta' },
+      { key: 4, label: 'Quinta' },
+      { key: 5, label: 'Sexta' },
+      { key: 6, label: 'Sábado' },
+      { key: 0, label: 'Domingo' }
+    ];
 
-      return {
-        Tipo: isIndisponibility ? 'Indisponibilidade' : 'Aula',
-        Título: event.title,
-        Data: formatDate(startDate),
-        Início: formatTime(startDate),
-        Fim: formatTime(endDate),
-        Disciplina: isIndisponibility ? '-' : getCadeira(event.extendedProps.cadeiraId)?.nome || '-',
-        Grupo: isIndisponibility ? '-' : getGrupo(event.extendedProps.groupId)?.nome || '-',
-        Sala: isIndisponibility ? '-' : getSala(event.extendedProps.salaId)?.nome || '-',
-        Professor: isIndisponibility ? '-' : getProfessor(event.extendedProps.professorId)?.nome || '-'
-      };
-    });
+    // Define time slots (08:00 to 23:00, every 30 min)
+    const slots: string[] = [];
+    for (let h = 8; h <= 23; h++) {
+      slots.push(`${h.toString().padStart(2, '0')}:00`);
+      if (h !== 23) slots.push(`${h.toString().padStart(2, '0')}:30`);
+    }
+
+    // Build a map: { slot: { weekday: eventString } }
+    const timetable: Record<string, Record<number, string>> = {};
+    for (const slot of slots) {
+      timetable[slot] = {};
+      for (const day of weekDays) {
+        timetable[slot][day.key] = '';
+      }
+    }
+
+    // Fill timetable with events
+    for (const event of events) {
+      const isIndisponibility = event.extendedProps.isIndisponibilidade || false;
+      const start = new Date(event.start!);
+      const end = new Date(event.end!);
+      let current = new Date(start);
+
+      // For each slot the event covers, fill the cell
+      while (current < end) {
+        const hour = current.getHours().toString().padStart(2, '0');
+        const min = current.getMinutes().toString().padStart(2, '0');
+        const slotKey = `${hour}:${min}`;
+        const weekday = current.getDay(); // 0=Sunday, 1=Monday, ...
+        if (timetable[slotKey] && timetable[slotKey][weekday] === '') {
+          timetable[slotKey][weekday] = isIndisponibility
+            ? `Indisp.: ${event.title}`
+            : `${event.title}`;
+        }
+        // Next slot (30 min)
+        current = new Date(current.getTime() + 30 * 60 * 1000);
+      }
+    }
+
+    // Prepare data for Excel: first row is header
+    const header = ['Hora', ...weekDays.map(d => d.label)];
+    const excelData = [header];
+    for (const slot of slots) {
+      const row = [slot];
+      for (const day of weekDays) {
+        row.push(timetable[slot][day.key]);
+      }
+      excelData.push(row);
+    }
 
     // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    
-    // Define column widths (optional, for better readability)
+    const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+
+    // Set column widths
     worksheet['!cols'] = [
-      { wch: 15 }, // Tipo
-      { wch: 40 }, // Título
-      { wch: 15 }, // Data
-      { wch: 10 }, // Início
-      { wch: 10 }, // Fim
-      { wch: 25 }, // Disciplina
-      { wch: 10 }, // Grupo
-      { wch: 15 }, // Sala
-      { wch: 25 }  // Professor
+      { wch: 8 }, // Hora
+      ...weekDays.map(() => ({ wch: 32 }))
     ];
 
     // Create workbook and append worksheet
@@ -404,7 +439,10 @@
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Horário');
 
     // Generate and download Excel file
-    XLSX.writeFile(workbook, `Horario_${loggedInProfessor.nome.replace(/\s+/g, '_')}_${formatDate(new Date())}.xlsx`);
+    XLSX.writeFile(
+      workbook,
+      `Horario_${loggedInProfessor.nome.replace(/\s+/g, '_')}_${formatDate(new Date())}.xlsx`
+    );
 
     showNotification('Horário exportado com sucesso!', 'success');
   }
