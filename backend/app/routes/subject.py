@@ -26,3 +26,7 @@ def get_subject(subject_id: int, session: Session = Depends(get_session)):
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     return subject
+
+@router.get("/with-hours", response_model=list[SubjectRead])
+def get_subjects_with_hours(session: Session = Depends(get_session)):
+    return session.query(Subject).all()
