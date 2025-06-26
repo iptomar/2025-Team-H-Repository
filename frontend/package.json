@@ -49,6 +49,7 @@
 		"@fullcalendar/core": "^6.1.17",
 		"@fullcalendar/daygrid": "^6.1.17",
 		"@fullcalendar/interaction": "^6.1.17",
-		"@fullcalendar/timegrid": "^6.1.17"
+		"@fullcalendar/timegrid": "^6.1.17",
+		"xlsx": "^0.18.5"
 	}
 }

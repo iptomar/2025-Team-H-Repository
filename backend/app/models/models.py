@@ -54,7 +54,6 @@ class TimetablePhase(str, Enum):
     proposal = "proposal"
     adjustment = "adjustment"
 
-
 # Models
 class Location(Base):
     __tablename__ = "locations"
@@ -93,6 +92,7 @@ class User(Base):
     role = mapped_column(SQLEnum(UserRole), nullable=False)
     school_id = mapped_column(Integer, ForeignKey("schools.school_id"), nullable=True)
     course_id = mapped_column(Integer, ForeignKey("courses.course_id"), nullable=True)
+    token         = Column(String(255), nullable=True, unique=True)
 
     # Relationships
     school = relationship("School", back_populates="users")
@@ -117,7 +117,6 @@ class User(Base):
             name="chk_role_course",
         ),
     )
-
 
 class Course(Base):
     __tablename__ = "courses"
