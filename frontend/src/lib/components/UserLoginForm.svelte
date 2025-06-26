@@ -2,18 +2,38 @@
 	import { Button } from '$lib/components/ui/button/';
 	import { Input } from '$lib/components/ui/input/';
 	import { Label } from '$lib/components/ui/label/';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '$lib/utils';
+	import { auth } from '$lib/api';
+	import { goto } from '$app/navigation';
 
 	let className: string | undefined | null = undefined;
 	export { className as class };
 
 	let isLoading = false;
+	let email = '';
+	let password = '';
+	let error = '';
+
 	async function onSubmit() {
 		isLoading = true;
+		error = '';
 
-		setTimeout(() => {
+		try {
+			const loginResponse = await auth.login({
+				username: email, // API expects 'username' field
+				password: password
+			});
+
+			// Login successful - redirect to dashboard or home page
+			console.log('Login successful:', loginResponse.user);
+			await goto('/timetable'); // or wherever you want to redirect
+			
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Login failed';
+			console.error('Login error:', err);
+		} finally {
 			isLoading = false;
-		}, 3000);
+		}
 	}
 </script>
 
@@ -24,25 +44,40 @@
 				<Label class="sr-only" for="email">Email</Label>
 				<Input
 					id="email"
+					bind:value={email}
 					placeholder="nome@ipt.pt"
 					type="email"
 					autocapitalize="none"
 					autocomplete="email"
 					autocorrect="off"
 					disabled={isLoading}
+					required
 				/>
-				<Label class="sr-only" for="email">Email</Label>
+				<Label class="sr-only" for="password">Password</Label>
 				<Input
 					id="password"
+					bind:value={password}
 					placeholder="password"
 					type="password"
-					autocomplete="email"
+					autocomplete="current-password"
 					autocorrect="off"
 					disabled={isLoading}
+					required
 				/>
 			</div>
-			<Button type="submit" disabled={isLoading}>
-				Login
+			
+			{#if error}
+				<div class="text-sm text-red-600 bg-red-50 p-2 rounded">
+					{error}
+				</div>
+			{/if}
+			
+			<Button type="submit" disabled={isLoading || !email || !password}>
+				{#if isLoading}
+					Logging in...
+				{:else}
+					Login
+				{/if}
 			</Button>
 		</div>
 	</form>
