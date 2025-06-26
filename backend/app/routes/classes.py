@@ -2,45 +2,604 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select  # Use sqlmodel instead of sqlalchemy.orm
 from app.database import get_session
 from app.models.models import Class as ClassModel
-from app.schemas import ClassCreate, ClassUpdate, ClassResponse
+from app.schemas import classes as schemas
+from datetime import datetime
+from app import models
+from typing import List
 
 router = APIRouter(prefix="/classes", tags=["classes"])
 
-@router.get("/", response_model=list[ClassResponse])
-def read_classes(skip: int = 0, limit: int = 100, session: Session = Depends(get_session)):
-    return session.exec(select(ClassModel).offset(skip).limit(limit)).all()
 
-@router.get("/{class_id}", response_model=ClassResponse)
-def read_class(class_id: int, session: Session = Depends(get_session)):
-    class_obj = session.get(ClassModel, class_id)
-    if not class_obj:
+@router.post("/locations/", response_model=schemas.Location)
+def create_location(location: schemas.LocationCreate, db: Session = Depends(get_session)):
+    db_location = models.Location(**location.model_dump())
+    db.add(db_location)
+    db.commit()
+    db.refresh(db_location)
+    return db_location
+
+@router.get("/locations/", response_model=List[schemas.Location])
+def read_locations(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    locations = db.query(models.Location).offset(skip).limit(limit).all()
+    return locations
+
+@router.get("/locations/{location_id}", response_model=schemas.Location)
+def read_location(location_id: int, db: Session = Depends(get_session)):
+    location = db.query(models.Location).filter(models.Location.location_id == location_id).first()
+    if location is None:
+        raise HTTPException(status_code=404, detail="Location not found")
+    return location
+
+@router.put("/locations/{location_id}", response_model=schemas.Location)
+def update_location(location_id: int, location: schemas.LocationUpdate, db: Session = Depends(get_session)):
+    db_location = db.query(models.Location).filter(models.Location.location_id == location_id).first()
+    if db_location is None:
+        raise HTTPException(status_code=404, detail="Location not found")
+    
+    update_data = location.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_location, field, value)
+    
+    db.commit()
+    db.refresh(db_location)
+    return db_location
+
+@router.delete("/locations/{location_id}")
+def delete_location(location_id: int, db: Session = Depends(get_session)):
+    location = db.query(models.Location).filter(models.Location.location_id == location_id).first()
+    if location is None:
+        raise HTTPException(status_code=404, detail="Location not found")
+    db.delete(location)
+    db.commit()
+    return {"message": "Location deleted successfully"}
+
+# School endpoints
+@router.post("/schools/", response_model=schemas.School)
+def create_school(school: schemas.SchoolCreate, db: Session = Depends(get_session)):
+    db_school = models.School(**school.model_dump())
+    db.add(db_school)
+    db.commit()
+    db.refresh(db_school)
+    return db_school
+
+@router.get("/schools/", response_model=List[schemas.School])
+def read_schools(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    schools = db.query(models.School).offset(skip).limit(limit).all()
+    return schools
+
+@router.get("/schools/{school_id}", response_model=schemas.School)
+def read_school(school_id: int, db: Session = Depends(get_session)):
+    school = db.query(models.School).filter(models.School.school_id == school_id).first()
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    return school
+
+@router.put("/schools/{school_id}", response_model=schemas.School)
+def update_school(school_id: int, school: schemas.SchoolUpdate, db: Session = Depends(get_session)):
+    db_school = db.query(models.School).filter(models.School.school_id == school_id).first()
+    if db_school is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    update_data = school.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_school, field, value)
+    
+    db.commit()
+    db.refresh(db_school)
+    return db_school
+
+@router.delete("/schools/{school_id}")
+def delete_school(school_id: int, db: Session = Depends(get_session)):
+    school = db.query(models.School).filter(models.School.school_id == school_id).first()
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    db.delete(school)
+    db.commit()
+    return {"message": "School deleted successfully"}
+
+# User endpoints
+@router.post("/users/", response_model=schemas.User)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_session)):
+    # Check if username already exists
+    existing_user = db.query(models.User).filter(models.User.username == user.username).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    
+    user_data = user.model_dump()
+    password = user_data.pop('password')
+    user_data['password_hash'] = get_password_hash(password)
+    
+    db_user = models.User(**user_data)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@router.get("/users/", response_model=List[schemas.User])
+def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    users = db.query(models.User).offset(skip).limit(limit).all()
+    return users
+
+@router.get("/users/{user_id}", response_model=schemas.User)
+def read_user(user_id: int, db: Session = Depends(get_session)):
+    user = db.query(models.User).filter(models.User.user_id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@router.put("/users/{user_id}", response_model=schemas.User)
+def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(get_session)):
+    db_user = db.query(models.User).filter(models.User.user_id == user_id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = user.model_dump(exclude_unset=True)
+    if 'password' in update_data:
+        update_data['password_hash'] = get_password_hash(update_data.pop('password'))
+    
+    for field, value in update_data.items():
+        setattr(db_user, field, value)
+    
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_session)):
+    user = db.query(models.User).filter(models.User.user_id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    return {"message": "User deleted successfully"}
+
+# Course endpoints
+@router.post("/courses/", response_model=schemas.Course)
+def create_course(course: schemas.CourseCreate, db: Session = Depends(get_session)):
+    db_course = models.Course(**course.model_dump())
+    db.add(db_course)
+    db.commit()
+    db.refresh(db_course)
+    return db_course
+
+@router.get("/courses/", response_model=List[schemas.Course])
+def read_courses(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    courses = db.query(models.Course).offset(skip).limit(limit).all()
+    return courses
+
+@router.get("/courses/{course_id}", response_model=schemas.Course)
+def read_course(course_id: int, db: Session = Depends(get_session)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return course
+
+@router.put("/courses/{course_id}", response_model=schemas.Course)
+def update_course(course_id: int, course: schemas.CourseUpdate, db: Session = Depends(get_session)):
+    db_course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if db_course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    update_data = course.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_course, field, value)
+    
+    db.commit()
+    db.refresh(db_course)
+    return db_course
+
+@router.delete("/courses/{course_id}")
+def delete_course(course_id: int, db: Session = Depends(get_session)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    db.delete(course)
+    db.commit()
+    return {"message": "Course deleted successfully"}
+
+# Subject endpoints
+@router.post("/subjects/", response_model=schemas.Subject)
+def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_session)):
+    db_subject = models.Subject(**subject.model_dump())
+    db.add(db_subject)
+    db.commit()
+    db.refresh(db_subject)
+    return db_subject
+
+@router.get("/subjects/", response_model=List[schemas.Subject])
+def read_subjects(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    subjects = db.query(models.Subject).offset(skip).limit(limit).all()
+    return subjects
+
+@router.get("/subjects/{subject_id}", response_model=schemas.Subject)
+def read_subject(subject_id: int, db: Session = Depends(get_session)):
+    subject = db.query(models.Subject).filter(models.Subject.subject_id == subject_id).first()
+    if subject is None:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    return subject
+
+@router.put("/subjects/{subject_id}", response_model=schemas.Subject)
+def update_subject(subject_id: int, subject: schemas.SubjectUpdate, db: Session = Depends(get_session)):
+    db_subject = db.query(models.Subject).filter(models.Subject.subject_id == subject_id).first()
+    if db_subject is None:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    
+    update_data = subject.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_subject, field, value)
+    
+    db.commit()
+    db.refresh(db_subject)
+    return db_subject
+
+@router.delete("/subjects/{subject_id}")
+def delete_subject(subject_id: int, db: Session = Depends(get_session)):
+    subject = db.query(models.Subject).filter(models.Subject.subject_id == subject_id).first()
+    if subject is None:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    db.delete(subject)
+    db.commit()
+    return {"message": "Subject deleted successfully"}
+
+# ClassGroup endpoints
+@router.post("/class-groups/", response_model=schemas.ClassGroup)
+def create_class_group(class_group: schemas.ClassGroupCreate, db: Session = Depends(get_session)):
+    db_class_group = models.ClassGroup(**class_group.model_dump())
+    db.add(db_class_group)
+    db.commit()
+    db.refresh(db_class_group)
+    return db_class_group
+
+@router.get("/class-groups/", response_model=List[schemas.ClassGroup])
+def read_class_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    class_groups = db.query(models.ClassGroup).offset(skip).limit(limit).all()
+    return class_groups
+
+@router.get("/class-groups/{class_group_id}", response_model=schemas.ClassGroup)
+def read_class_group(class_group_id: int, db: Session = Depends(get_session)):
+    class_group = db.query(models.ClassGroup).filter(models.ClassGroup.class_group_id == class_group_id).first()
+    if class_group is None:
+        raise HTTPException(status_code=404, detail="Class group not found")
+    return class_group
+
+@router.put("/class-groups/{class_group_id}", response_model=schemas.ClassGroup)
+def update_class_group(class_group_id: int, class_group: schemas.ClassGroupUpdate, db: Session = Depends(get_session)):
+    db_class_group = db.query(models.ClassGroup).filter(models.ClassGroup.class_group_id == class_group_id).first()
+    if db_class_group is None:
+        raise HTTPException(status_code=404, detail="Class group not found")
+    
+    update_data = class_group.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_class_group, field, value)
+    
+    db.commit()
+    db.refresh(db_class_group)
+    return db_class_group
+
+@router.delete("/class-groups/{class_group_id}")
+def delete_class_group(class_group_id: int, db: Session = Depends(get_session)):
+    class_group = db.query(models.ClassGroup).filter(models.ClassGroup.class_group_id == class_group_id).first()
+    if class_group is None:
+        raise HTTPException(status_code=404, detail="Class group not found")
+    db.delete(class_group)
+    db.commit()
+    return {"message": "Class group deleted successfully"}
+
+# Room endpoints
+@router.post("/rooms/", response_model=schemas.Room)
+def create_room(room: schemas.RoomCreate, db: Session = Depends(get_session)):
+    db_room = models.Room(**room.model_dump())
+    db.add(db_room)
+    db.commit()
+    db.refresh(db_room)
+    return db_room
+
+@router.get("/rooms/", response_model=List[schemas.Room])
+def read_rooms(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    rooms = db.query(models.Room).offset(skip).limit(limit).all()
+    return rooms
+
+@router.get("/rooms/{room_id}", response_model=schemas.Room)
+def read_room(room_id: int, db: Session = Depends(get_session)):
+    room = db.query(models.Room).filter(models.Room.room_id == room_id).first()
+    if room is None:
+        raise HTTPException(status_code=404, detail="Room not found")
+    return room
+
+@router.put("/rooms/{room_id}", response_model=schemas.Room)
+def update_room(room_id: int, room: schemas.RoomUpdate, db: Session = Depends(get_session)):
+    db_room = db.query(models.Room).filter(models.Room.room_id == room_id).first()
+    if db_room is None:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    update_data = room.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_room, field, value)
+    
+    db.commit()
+    db.refresh(db_room)
+    return db_room
+
+@router.delete("/rooms/{room_id}")
+def delete_room(room_id: int, db: Session = Depends(get_session)):
+    room = db.query(models.Room).filter(models.Room.room_id == room_id).first()
+    if room is None:
+        raise HTTPException(status_code=404, detail="Room not found")
+    db.delete(room)
+    db.commit()
+    return {"message": "Room deleted successfully"}
+
+# TimetableVersion endpoints
+@router.post("/timetable-versions/", response_model=schemas.TimetableVersion)
+def create_timetable_version(version: schemas.TimetableVersionCreate, db: Session = Depends(get_session)):
+    db_version = models.TimetableVersion(**version.model_dump())
+    db.add(db_version)
+    db.commit()
+    db.refresh(db_version)
+    return db_version
+
+@router.get("/timetable-versions/", response_model=List[schemas.TimetableVersion])
+def read_timetable_versions(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    versions = db.query(models.TimetableVersion).offset(skip).limit(limit).all()
+    return versions
+
+@router.get("/timetable-versions/{version_id}", response_model=schemas.TimetableVersion)
+def read_timetable_version(version_id: int, db: Session = Depends(get_session)):
+    version = db.query(models.TimetableVersion).filter(models.TimetableVersion.version_id == version_id).first()
+    if version is None:
+        raise HTTPException(status_code=404, detail="Timetable version not found")
+    return version
+
+@router.put("/timetable-versions/{version_id}", response_model=schemas.TimetableVersion)
+def update_timetable_version(version_id: int, version: schemas.TimetableVersionUpdate, db: Session = Depends(get_session)):
+    db_version = db.query(models.TimetableVersion).filter(models.TimetableVersion.version_id == version_id).first()
+    if db_version is None:
+        raise HTTPException(status_code=404, detail="Timetable version not found")
+    
+    update_data = version.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_version, field, value)
+    
+    db.commit()
+    db.refresh(db_version)
+    return db_version
+
+@router.delete("/timetable-versions/{version_id}")
+def delete_timetable_version(version_id: int, db: Session = Depends(get_session)):
+    version = db.query(models.TimetableVersion).filter(models.TimetableVersion.version_id == version_id).first()
+    if version is None:
+        raise HTTPException(status_code=404, detail="Timetable version not found")
+    db.delete(version)
+    db.commit()
+    return {"message": "Timetable version deleted successfully"}
+
+# Class endpoints
+@router.post("/classes/", response_model=schemas.Class)
+def create_class(class_data: schemas.ClassCreate, db: Session = Depends(get_session)):
+    class_dict = class_data.model_dump()
+    class_group_ids = class_dict.pop('class_group_ids', [])
+    
+    db_class = models.Class(**class_dict)
+    db.add(db_class)
+    db.commit()
+    
+    # Add class groups
+    if class_group_ids:
+        class_groups = db.query(models.ClassGroup).filter(models.ClassGroup.class_group_id.in_(class_group_ids)).all()
+        db_class.class_groups.extend(class_groups)
+        db.commit()
+    
+    db.refresh(db_class)
+    return db_class
+
+@router.get("/classes/", response_model=List[schemas.Class])
+def read_classes(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    classes = db.query(models.Class).offset(skip).limit(limit).all()
+    return classes
+
+@router.get("/classes/{class_id}", response_model=schemas.Class)
+def read_class(class_id: int, db: Session = Depends(get_session)):
+    class_obj = db.query(models.Class).filter(models.Class.class_id == class_id).first()
+    if class_obj is None:
         raise HTTPException(status_code=404, detail="Class not found")
     return class_obj
 
-@router.post("/", response_model=ClassResponse)
-def create_class(class_in: ClassCreate, session: Session = Depends(get_session)):
-    class_obj = ClassModel(**class_in.dict())
-    session.add(class_obj)
-    session.commit()
-    session.refresh(class_obj)
-    return class_obj
-
-@router.put("/{class_id}", response_model=ClassResponse)
-def update_class(class_id: int, class_in: ClassUpdate, session: Session = Depends(get_session)):
-    class_obj = session.get(ClassModel, class_id)
-    if not class_obj:
+@router.put("/classes/{class_id}", response_model=schemas.Class)
+def update_class(class_id: int, class_data: schemas.ClassUpdate, db: Session = Depends(get_session)):
+    db_class = db.query(models.Class).filter(models.Class.class_id == class_id).first()
+    if db_class is None:
         raise HTTPException(status_code=404, detail="Class not found")
-    for field, value in class_in.dict(exclude_unset=True).items():
-        setattr(class_obj, field, value)
-    session.commit()
-    session.refresh(class_obj)
-    return class_obj
+    
+    update_data = class_data.model_dump(exclude_unset=True)
+    class_group_ids = update_data.pop('class_group_ids', None)
+    
+    for field, value in update_data.items():
+        setattr(db_class, field, value)
+    
+    # Update class groups if provided
+    if class_group_ids is not None:
+        db_class.class_groups.clear()
+        if class_group_ids:
+            class_groups = db.query(models.ClassGroup).filter(models.ClassGroup.class_group_id.in_(class_group_ids)).all()
+            db_class.class_groups.extend(class_groups)
+    
+    db.commit()
+    db.refresh(db_class)
+    return db_class
 
-@router.delete("/{class_id}")
-def delete_class(class_id: int, session: Session = Depends(get_session)):
-    class_obj = session.get(ClassModel, class_id)
-    if not class_obj:
+@router.delete("/classes/{class_id}")
+def delete_class(class_id: int, db: Session = Depends(get_session)):
+    class_obj = db.query(models.Class).filter(models.Class.class_id == class_id).first()
+    if class_obj is None:
         raise HTTPException(status_code=404, detail="Class not found")
-    session.delete(class_obj)
-    session.commit()
-    return {"ok": True}
+    db.delete(class_obj)
+    db.commit()
+    return {"message": "Class deleted successfully"}
+
+# Unavailability endpoints
+@router.post("/unavailabilities/", response_model=schemas.Unavailability)
+def create_unavailability(unavailability: schemas.UnavailabilityCreate, db: Session = Depends(get_session)):
+    db_unavailability = models.Unavailability(**unavailability.model_dump())
+    db.add(db_unavailability)
+    db.commit()
+    db.refresh(db_unavailability)
+    return db_unavailability
+
+@router.get("/unavailabilities/", response_model=List[schemas.Unavailability])
+def read_unavailabilities(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    unavailabilities = db.query(models.Unavailability).offset(skip).limit(limit).all()
+    return unavailabilities
+
+@router.get("/unavailabilities/{unavailability_id}", response_model=schemas.Unavailability)
+def read_unavailability(unavailability_id: int, db: Session = Depends(get_session)):
+    unavailability = db.query(models.Unavailability).filter(models.Unavailability.unavailability_id == unavailability_id).first()
+    if unavailability is None:
+        raise HTTPException(status_code=404, detail="Unavailability not found")
+    return unavailability
+
+@router.put("/unavailabilities/{unavailability_id}", response_model=schemas.Unavailability)
+def update_unavailability(unavailability_id: int, unavailability: schemas.UnavailabilityUpdate, db: Session = Depends(get_session)):
+    db_unavailability = db.query(models.Unavailability).filter(models.Unavailability.unavailability_id == unavailability_id).first()
+    if db_unavailability is None:
+        raise HTTPException(status_code=404, detail="Unavailability not found")
+    
+    update_data = unavailability.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_unavailability, field, value)
+    
+    db.commit()
+    db.refresh(db_unavailability)
+    return db_unavailability
+
+@router.delete("/unavailabilities/{unavailability_id}")
+def delete_unavailability(unavailability_id: int, db: Session = Depends(get_session)):
+    unavailability = db.query(models.Unavailability).filter(models.Unavailability.unavailability_id == unavailability_id).first()
+    if unavailability is None:
+        raise HTTPException(status_code=404, detail="Unavailability not found")
+    db.delete(unavailability)
+    db.commit()
+    return {"message": "Unavailability deleted successfully"}
+
+# CalendarEvent endpoints
+@router.post("/calendar-events/", response_model=schemas.CalendarEvent)
+def create_calendar_event(event: schemas.CalendarEventCreate, db: Session = Depends(get_session)):
+    db_event = models.CalendarEvent(**event.model_dump())
+    db.add(db_event)
+    db.commit()
+    db.refresh(db_event)
+    return db_event
+
+@router.get("/calendar-events/", response_model=List[schemas.CalendarEvent])
+def read_calendar_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    events = db.query(models.CalendarEvent).offset(skip).limit(limit).all()
+    return events
+
+@router.get("/calendar-events/{event_id}", response_model=schemas.CalendarEvent)
+def read_calendar_event(event_id: int, db: Session = Depends(get_session)):
+    event = db.query(models.CalendarEvent).filter(models.CalendarEvent.event_id == event_id).first()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Calendar event not found")
+    return event
+
+@router.put("/calendar-events/{event_id}", response_model=schemas.CalendarEvent)
+def update_calendar_event(event_id: int, event: schemas.CalendarEventUpdate, db: Session = Depends(get_session)):
+    db_event = db.query(models.CalendarEvent).filter(models.CalendarEvent.event_id == event_id).first()
+    if db_event is None:
+        raise HTTPException(status_code=404, detail="Calendar event not found")
+    
+    update_data = event.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_event, field, value)
+    
+    db.commit()
+    db.refresh(db_event)
+    return db_event
+
+@router.delete("/calendar-events/{event_id}")
+def delete_calendar_event(event_id: int, db: Session = Depends(get_session)):
+    event = db.query(models.CalendarEvent).filter(models.CalendarEvent.event_id == event_id).first()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Calendar event not found")
+    db.delete(event)
+    db.commit()
+    return {"message": "Calendar event deleted successfully"}
+
+# Approval endpoints
+@router.post("/approvals/", response_model=schemas.Approval)
+def create_approval(approval: schemas.ApprovalCreate, db: Session = Depends(get_session)):
+    db_approval = models.Approval(**approval.model_dump())
+    db.add(db_approval)
+    db.commit()
+    db.refresh(db_approval)
+    return db_approval
+
+@router.get("/approvals/", response_model=List[schemas.Approval])
+def read_approvals(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+    approvals = db.query(models.Approval).offset(skip).limit(limit).all()
+    return approvals
+
+@router.get("/approvals/{approval_id}", response_model=schemas.Approval)
+def read_approval(approval_id: int, db: Session = Depends(get_session)):
+    approval = db.query(models.Approval).filter(models.Approval.approval_id == approval_id).first()
+    if approval is None:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    return approval
+
+@router.put("/approvals/{approval_id}/respond", response_model=schemas.Approval)
+def respond_to_approval(approval_id: int, response: schemas.ApprovalResponse, db: Session = Depends(get_session)):
+    db_approval = db.query(models.Approval).filter(models.Approval.approval_id == approval_id).first()
+    if db_approval is None:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    
+    if db_approval.status != schemas.ApprovalStatus.pending:
+        raise HTTPException(status_code=400, detail="Approval has already been responded to")
+    
+    db_approval.approved_by = response.approved_by
+    db_approval.status = response.status
+    db_approval.response_date = datetime.now()
+    if response.notes:
+        db_approval.notes = response.notes
+    
+    db.commit()
+    db.refresh(db_approval)
+    return db_approval
+
+@router.delete("/approvals/{approval_id}")
+def delete_approval(approval_id: int, db: Session = Depends(get_session)):
+    approval = db.query(models.Approval).filter(models.Approval.approval_id == approval_id).first()
+    if approval is None:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    db.delete(approval)
+    db.commit()
+    return {"message": "Approval deleted successfully"}
+
+# Additional utility endpoints
+@router.get("/users/{user_id}/classes", response_model=List[schemas.Class])
+def get_user_classes(user_id: int, db: Session = Depends(get_session)):
+    """Get all classes taught by a specific user"""
+    classes = db.query(models.Class).filter(models.Class.teacher_id == user_id).all()
+    return classes
+
+@router.get("/rooms/{room_id}/classes", response_model=List[schemas.Class])
+def get_room_classes(room_id: int, db: Session = Depends(get_session)):
+    """Get all classes scheduled in a specific room"""
+    classes = db.query(models.Class).filter(models.Class.room_id == room_id).all()
+    return classes
+
+@router.get("/subjects/{subject_id}/classes", response_model=List[schemas.Class])
+def get_subject_classes(subject_id: int, db: Session = Depends(get_session)):
+    """Get all classes for a specific subject"""
+    classes = db.query(models.Class).filter(models.Class.subject_id == subject_id).all()
+    return classes
+
+@router.get("/users/{user_id}/unavailabilities", response_model=List[schemas.Unavailability])
+def get_user_unavailabilities(user_id: int, db: Session = Depends(get_session)):
+    """Get all unavailabilities for a specific user"""
+    unavailabilities = db.query(models.Unavailability).filter(models.Unavailability.teacher_id == user_id).all()
+    return unavailabilities
+
+@router.get("/approvals/pending", response_model=List[schemas.Approval])
+def get_pending_approvals(db: Session = Depends(get_session)):
+    """Get all pending approvals"""
+    approvals = db.query(models.Approval).filter(models.Approval.status == schemas.ApprovalStatus.pending).all()
+    return approvals

@@ -1,7 +1,6 @@
 from passlib.context import CryptContext
 from typing import Optional
 from sqlmodel import Session
-from app.database import get_db
 from app.models.models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"])
