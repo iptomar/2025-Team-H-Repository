@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.models.models import Subject
 from app.schemas.subject import SubjectCreate, SubjectRead
+from app.models.models import Subject
+from app.utils import calculate_total_hours_for_subject
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 
@@ -30,3 +32,25 @@ def get_subject(subject_id: int, session: Session = Depends(get_session)):
 @router.get("/with-hours", response_model=list[SubjectRead])
 def get_subjects_with_hours(session: Session = Depends(get_session)):
     return session.query(Subject).all()
+
+@router.get("/missing-hours")
+def get_missing_hours(session: Session = Depends(get_session)):
+    subjects = session.query(Subject).all()
+    result = []
+    for subject in subjects:
+        total_hours = calculate_total_hours_for_subject(subject.subject_id, session)
+        missing = subject.weekly_required_hours - total_hours
+        status = (
+            "complete" if missing == 0 else
+            "exceeded" if missing < 0 else
+            "missing"
+        )
+        result.append({
+            "subject_id": subject.subject_id,
+            "subject_name": subject.name,
+            "required_hours": subject.weekly_required_hours,
+            "assigned_hours": total_hours,
+            "missing_hours": max(missing, 0),
+            "status": status
+        })
+    return result
