@@ -3,13 +3,14 @@
   import { Calendar, type EventApi } from '@fullcalendar/core';
   import timeGridPlugin from '@fullcalendar/timegrid';
   import interactionPlugin from '@fullcalendar/interaction';
+  import * as XLSX from 'xlsx'; // Import xlsx library
 
-  // --- DADOS MOCK (Podem ser importados de um ficheiro comum ou da API, para demonstração estão aqui) ---
+  // --- Existing interfaces and mock data remain unchanged ---
   interface Professor {
     id: string;
     nome: string;
     email: string;
-    escolaId: string; // Para identificar a escola do professor
+    escolaId: string;
     indisponibilidades: { id: string; start: string; end: string; title: string; type: 'single' | 'recurring' | 'full-day' }[];
   }
 
@@ -26,7 +27,7 @@
     numAlunos: number;
     cadeiraId: string;
     cursoId: string;
-    escolaId: string; // ESTT, ESGT, ESTA
+    escolaId: string;
   }
 
   interface Sala {
@@ -42,6 +43,7 @@
     escolaId: string;
   }
 
+  // Mock data (unchanged)
   const mockProfessores: Professor[] = [
     {
       id: 'p1',
@@ -50,9 +52,7 @@
       escolaId: 'e1',
       indisponibilidades: [
         { id: 'indisp1_p1', start: '2025-04-07T11:00:00', end: '2025-04-07T12:00:00', title: 'Reunião', type: 'single' },
-        { id: 'indisp2_p1', start: '2025-04-09T10:00:00', end: '2025-04-09T12:00:00', title: 'Formação', type: 'single' },
-        // Exemplo de indisponibilidade recorrente (necessitaria de lógica FullCalendar mais avançada ou simulação)
-        // { id: 'indisp3_p1', start: '2025-04-07T08:00:00', end: '2025-04-07T09:00:00', title: 'Consulta Médica (Semanal)', type: 'recurring', daysOfWeek: [1] } // Segundas-feiras
+        { id: 'indisp2_p1', start: '2025-04-09T10:00:00', end: '2025-04-09T12:00:00', title: 'Formação', type: 'single' }
       ]
     },
     {
@@ -96,13 +96,13 @@
 
   const mockCursos: Curso[] = [
     { id: 'c1', nome: 'Engenharia Informática', escolaId: 'e1' },
-    { id: 'c2', nome: 'Gestão', escolaId: 'e2' },
+    { id: 'c2', nome: 'Gestão', escolaId: 'e2' }
   ];
 
   const mockEscolas = [
     { id: 'e1', nome: 'ESTT', campus: 'Tomar' },
     { id: 'e2', nome: 'ESGT', campus: 'Tomar' },
-    { id: 'e3', nome: 'ESTA', campus: 'Abrantes' },
+    { id: 'e3', nome: 'ESTA', campus: 'Abrantes' }
   ];
 
   const mockAulasAgendadas = [
@@ -132,30 +132,24 @@
     }
   ];
 
-  // --- FIM DOS DADOS MOCK ---
-
-  // Professor Logado (simulação, em um app real viria da autenticação)
-  const loggedInProfessor: Professor = mockProfessores[0]; // Assumindo Prof. João Silva está logado
-
-  // Calendário do horário atual do professor
+  // --- Existing variables and functions remain largely unchanged ---
+  const loggedInProfessor: Professor = mockProfessores[0];
   let calendarElSchedule: HTMLElement;
   let calendarSchedule: Calendar;
-
-  // Calendário para gerir indisponibilidades
   let calendarElAvailability: HTMLElement;
   let calendarAvailability: Calendar;
-
   let showIndisponibilityModal = false;
   let indispStart = '';
   let indispEnd = '';
   let indispTitle = '';
   let selectedIndisponibility: Professor['indisponibilidades'][0] | null = null;
   let indispType: 'single' | 'recurring' | 'full-day' = 'single';
-  let indispRecurringDays: number[] = []; // Para indisponibilidades recorrentes (ex: [1, 3] para Seg e Qua)
+  let indispRecurringDays: number[] = [];
+  let indispIdCounter = 1000;
+  let showToast = false;
+  let toastMessage = '';
+  let toastType: 'success' | 'error' | 'warning' = 'success';
 
-  let indispIdCounter = 1000; // Contador para IDs de indisponibilidades
-
-  // --- Funções Auxiliares ---
   function getCadeira(id: string) { return mockCadeiras.find(c => c.id === id); }
   function getGrupo(id: string) { return mockGrupos.find(g => g.id === id); }
   function getProfessor(id: string) { return mockProfessores.find(p => p.id === id); }
@@ -175,28 +169,19 @@
     return date.toLocaleDateString('pt-PT');
   }
 
-  // --- Funções de Notificação (Toast) ---
-  let showToast = false;
-  let toastMessage = '';
-  let toastType: 'success' | 'error' | 'warning' = 'success'; // Tipo de mensagem para o estilo
-
   function showNotification(message: string, type: 'success' | 'error' | 'warning' = 'success') {
     toastMessage = message;
     toastType = type;
     showToast = true;
     setTimeout(() => {
       showToast = false;
-    }, 3000); // Esconde a notificação após 3 segundos
+    }, 3000);
   }
 
-  // --- Lógica de Sincronização entre Calendários ---
-  // Sincroniza indisponibilidade entre os dois calendários E salva/busca do localStorage
+  // --- Existing syncIndisponibilityToScheduleCalendar, checkAvailabilityConflict, saveIndisponibility, deleteIndisponibility, closeIndisponibilityModal functions remain unchanged ---
   function syncIndisponibilityToScheduleCalendar(indisp: Professor['indisponibilidades'][0], action: 'add' | 'update' | 'remove') {
     if (!calendarSchedule) return;
-
     const eventIdInSchedule = `indisp-schedule-${indisp.id}`;
-
-    // Atualiza o calendário de horário
     if (action === 'add') {
       calendarSchedule.addEvent({
         id: eventIdInSchedule,
@@ -225,8 +210,6 @@
         eventToRemove.remove();
       }
     }
-
-    // Sempre salva as indisponibilidades do professor no localStorage
     try {
       localStorage.setItem(
         `indisponibilidades-${loggedInProfessor.id}`,
@@ -237,7 +220,7 @@
     }
   }
 
-  // Ao carregar a página, tenta buscar indisponibilidades do localStorage
+  // Load indisponibilities from localStorage (unchanged)
   (() => {
     try {
       const stored = localStorage.getItem(`indisponibilidades-${loggedInProfessor.id}`);
@@ -248,84 +231,60 @@
         }
       }
     } catch (e) {
-      // ignora erro de parsing
+      // Ignore parsing errors
     }
   })();
-
-
-  // --- Lógica do Calendário de Indisponibilidades ---
 
   function checkAvailabilityConflict(newIndisp: { start: Date, end: Date }, indispIdBeingChecked?: string): string | null {
     const newIndispStart = newIndisp.start.getTime();
     const newIndispEnd = newIndisp.end.getTime();
-
     const roundToHalfHour = (ms: number) => Math.round(ms / (30 * 60 * 1000)) * (30 * 60 * 1000);
     const newIndispStartRounded = roundToHalfHour(newIndispStart);
     const newIndispEndRounded = roundToHalfHour(newIndispEnd);
-
-    // Verificar conflito com as aulas agendadas do professor
     const professorLessons = mockAulasAgendadas.filter(aula => aula.extendedProps.professorId === loggedInProfessor.id);
-
     for (const lesson of professorLessons) {
       const lessonStart = new Date(lesson.start).getTime();
       const lessonEnd = new Date(lesson.end).getTime();
-
       const lessonStartRounded = roundToHalfHour(lessonStart);
       const lessonEndRounded = roundToHalfHour(lessonEnd);
-
       if (newIndispStartRounded < lessonEndRounded && newIndispEndRounded > lessonStartRounded) {
         return `Conflito: Você já tem a aula "${lesson.title}" agendada neste horário.`;
       }
     }
-
-    // Verificar conflito com outras indisponibilidades do professor (apenas no calendário de gestão de indisponibilidades)
     const currentIndisponibilities = calendarAvailability.getEvents();
     for (const existingIndisp of currentIndisponibilities) {
-      if (existingIndisp.id === indispIdBeingChecked) continue; // Ignorar a própria indisponibilidade ao mover/redimensionar
-
+      if (existingIndisp.id === indispIdBeingChecked) continue;
       const existingIndispStart = existingIndisp.start!.getTime();
       const existingIndispEnd = existingIndisp.end!.getTime();
-
       const existingIndispStartRounded = roundToHalfHour(existingIndispStart);
       const existingIndispEndRounded = roundToHalfHour(existingIndispEnd);
-
       if (newIndispStartRounded < existingIndispEndRounded && newIndispEndRounded > existingIndispStartRounded) {
         return `Conflito: Você já marcou uma indisponibilidade "${existingIndisp.title}" neste horário.`;
       }
     }
-
     return null;
   }
 
   function saveIndisponibility() {
     const start = new Date(indispStart);
     const end = new Date(indispEnd);
-
     if (!indispTitle) {
       showNotification('Por favor, insira um título para a indisponibilidade.', 'error');
       return;
     }
-
     const conflictMessage = checkAvailabilityConflict({ start, end }, selectedIndisponibility?.id);
-
     if (conflictMessage) {
       showNotification(conflictMessage, 'error');
       return;
     }
-
     let updatedIndisps: Professor['indisponibilidades'];
-
     if (selectedIndisponibility) {
-      // Editar indisponibilidade existente
       const originalIndispId = selectedIndisponibility.id;
       const updatedIndisp = { ...selectedIndisponibility, start: start.toISOString(), end: end.toISOString(), title: indispTitle, type: indispType };
-
-      // Atualiza o array mock do professor
       loggedInProfessor.indisponibilidades = loggedInProfessor.indisponibilidades.map(indisp =>
         indisp.id === originalIndispId ? updatedIndisp : indisp
       );
       updatedIndisps = loggedInProfessor.indisponibilidades;
-      // Atualiza o evento no calendário de indisponibilidades
       const eventToUpdate = calendarAvailability.getEventById(originalIndispId);
       if (eventToUpdate) {
         eventToUpdate.setProp('title', indispTitle);
@@ -333,57 +292,45 @@
         eventToUpdate.setEnd(end);
         eventToUpdate.setExtendedProp('type', indispType);
       }
-      // Sincroniza com o calendário de horário do professor
       syncIndisponibilityToScheduleCalendar(updatedIndisp, 'update');
       showNotification('Indisponibilidade atualizada com sucesso!', 'success');
     } else {
-      // Adicionar nova indisponibilidade
       const newId = `indisp-${loggedInProfessor.id}-${indispIdCounter++}`;
       const newIndisp = { id: newId, start: start.toISOString(), end: end.toISOString(), title: indispTitle, type: indispType };
-      loggedInProfessor.indisponibilidades.push(newIndisp); // Adiciona ao array mock
+      loggedInProfessor.indisponibilidades.push(newIndisp);
       updatedIndisps = loggedInProfessor.indisponibilidades;
-      // Adiciona ao calendário de indisponibilidades
       calendarAvailability.addEvent({
         id: newId,
         title: indispTitle,
         start: start,
         end: end,
-        backgroundColor: '#a3a3a3', // Cor para indisponibilidade
+        backgroundColor: '#a3a3a3',
         borderColor: '#808080',
         extendedProps: { type: indispType }
       });
-      // Sincroniza com o calendário de horário do professor
       syncIndisponibilityToScheduleCalendar(newIndisp, 'add');
       showNotification('Indisponibilidade adicionada com sucesso!', 'success');
     }
-
-    // Salva no localStorage
     try {
       localStorage.setItem(
         `indisponibilidades-${loggedInProfessor.id}`,
         JSON.stringify(updatedIndisps)
       );
     } catch (e) {
-      // fallback: notifica erro mas não impede fluxo
       showNotification('Falha ao salvar no armazenamento local.', 'warning');
     }
-
     closeIndisponibilityModal();
   }
 
   function deleteIndisponibility() {
     if (selectedIndisponibility) {
       const indispToDelete = selectedIndisponibility;
-      // Remove do array mock
       loggedInProfessor.indisponibilidades = loggedInProfessor.indisponibilidades.filter(indisp => indisp.id !== indispToDelete.id);
-      // Remove do calendário de indisponibilidades
       const eventToRemove = calendarAvailability.getEventById(indispToDelete.id);
       if (eventToRemove) {
         eventToRemove.remove();
       }
-      // Sincroniza com o calendário de horário do professor
       syncIndisponibilityToScheduleCalendar(indispToDelete, 'remove');
-      // Atualiza o localStorage
       try {
         localStorage.setItem(
           `indisponibilidades-${loggedInProfessor.id}`,
@@ -407,31 +354,82 @@
     indispRecurringDays = [];
   }
 
-  // --- FullCalendar Setup ---
-  onMount(() => {
-    // 1. Calendário do Horário Atual do Professor
-    const professorScheduledLessons = mockAulasAgendadas.filter(aula => aula.extendedProps.professorId === loggedInProfessor.id)
-                                          .map(aula => ({
-                                              ...aula,
-                                              classNames: ['teacher-lesson'] // Para estilizar as aulas do professor
-                                          }));
+  // --- New Function: Export Timetable to Excel ---
+  function exportToExcel() {
+    if (!calendarSchedule) {
+      showNotification('Erro: Calendário não está inicializado.', 'error');
+      return;
+    }
 
-    // Carregar indisponibilidades DO PROFESSOR LOGADO AQUI para o calendário de cima
+    // Get all events from the schedule calendar
+    const events = calendarSchedule.getEvents();
+
+    // Prepare data for Excel
+    const excelData = events.map(event => {
+      const isIndisponibility = event.extendedProps.isIndisponibilidade || false;
+      const startDate = new Date(event.start!);
+      const endDate = new Date(event.end!);
+
+      return {
+        Tipo: isIndisponibility ? 'Indisponibilidade' : 'Aula',
+        Título: event.title,
+        Data: formatDate(startDate),
+        Início: formatTime(startDate),
+        Fim: formatTime(endDate),
+        Disciplina: isIndisponibility ? '-' : getCadeira(event.extendedProps.cadeiraId)?.nome || '-',
+        Grupo: isIndisponibility ? '-' : getGrupo(event.extendedProps.groupId)?.nome || '-',
+        Sala: isIndisponibility ? '-' : getSala(event.extendedProps.salaId)?.nome || '-',
+        Professor: isIndisponibility ? '-' : getProfessor(event.extendedProps.professorId)?.nome || '-'
+      };
+    });
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    
+    // Define column widths (optional, for better readability)
+    worksheet['!cols'] = [
+      { wch: 15 }, // Tipo
+      { wch: 40 }, // Título
+      { wch: 15 }, // Data
+      { wch: 10 }, // Início
+      { wch: 10 }, // Fim
+      { wch: 25 }, // Disciplina
+      { wch: 10 }, // Grupo
+      { wch: 15 }, // Sala
+      { wch: 25 }  // Professor
+    ];
+
+    // Create workbook and append worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Horário');
+
+    // Generate and download Excel file
+    XLSX.writeFile(workbook, `Horario_${loggedInProfessor.nome.replace(/\s+/g, '_')}_${formatDate(new Date())}.xlsx`);
+
+    showNotification('Horário exportado com sucesso!', 'success');
+  }
+
+  // --- FullCalendar Setup (unchanged except for onMount) ---
+  onMount(() => {
+    const professorScheduledLessons = mockAulasAgendadas.filter(aula => aula.extendedProps.professorId === loggedInProfessor.id)
+      .map(aula => ({
+        ...aula,
+        classNames: ['teacher-lesson']
+      }));
     const professorIndisponibilitiesForSchedule = loggedInProfessor.indisponibilidades.map(indisp => ({
-      id: `indisp-schedule-${indisp.id}`, // ID único para o calendário de cima
+      id: `indisp-schedule-${indisp.id}`,
       title: indisp.title,
       start: indisp.start,
       end: indisp.end,
-      backgroundColor: '#a3a3a3', // Cor para indisponibilidade
+      backgroundColor: '#a3a3a3',
       borderColor: '#808080',
       display: 'background',
-      classNames: ['teacher-indisponibility'], // Para estilizar as indisponibilidades
+      classNames: ['teacher-indisponibility'],
       extendedProps: {
-        isIndisponibilidade: true, // Marcar para fácil identificação
-        originalIndispId: indisp.id // Referência ao ID original da indisponibilidade
+        isIndisponibilidade: true,
+        originalIndispId: indisp.id
       }
     }));
-
     const allProfessorEvents = [...professorScheduledLessons, ...professorIndisponibilitiesForSchedule];
 
     calendarSchedule = new Calendar(calendarElSchedule, {
@@ -442,7 +440,7 @@
         center: 'title',
         right: 'timeGridWeek,timeGridDay'
       },
-      initialDate: '2025-04-07', // Data inicial para demonstração
+      initialDate: '2025-04-07',
       weekends: true,
       allDaySlot: false,
       slotMinTime: '08:00:00',
@@ -454,10 +452,9 @@
         hour12: false
       },
       events: allProfessorEvents,
-      editable: false, // O professor não edita aulas aqui, apenas visualiza
+      editable: false,
       selectable: false,
-      eventContent: function(arg) { // Personaliza o conteúdo do evento
-        // Para aulas:
+      eventContent: function(arg) {
         if (!arg.event.extendedProps.isIndisponibilidade) {
           return { html: `
             <div class="fc-event-main-frame">
@@ -469,19 +466,17 @@
             </div>
           `};
         }
-        // Para indisponibilidades (background events), o conteúdo é o título padrão
         return { html: `<div class="fc-event-title fc-sticky">${arg.event.title}</div>` };
       }
     });
     calendarSchedule.render();
 
-    // 2. Calendário para Gestão de Indisponibilidades
     const initialIndisponibilities = loggedInProfessor.indisponibilidades.map(indisp => ({
       id: indisp.id,
       title: indisp.title,
       start: indisp.start,
       end: indisp.end,
-      backgroundColor: '#a3a3a3', // Cor para indisponibilidade
+      backgroundColor: '#a3a3a3',
       borderColor: '#808080',
       extendedProps: { type: indisp.type }
     }));
@@ -494,7 +489,7 @@
         center: 'title',
         right: 'timeGridWeek,timeGridDay'
       },
-      initialDate: '2025-04-07', // Data inicial para demonstração
+      initialDate: '2025-04-07',
       weekends: true,
       allDaySlot: false,
       slotMinTime: '08:00:00',
@@ -506,10 +501,9 @@
         hour12: false
       },
       events: initialIndisponibilities,
-      editable: true, // Permitir arrastar e redimensionar indisponibilidades
-      selectable: true, // Permitir clicar e arrastar para criar nova indisponibilidade
+      editable: true,
+      selectable: true,
       select: (info) => {
-        // Criar nova indisponibilidade
         indispStart = info.startStr;
         indispEnd = info.endStr;
         indispTitle = '';
@@ -518,7 +512,6 @@
         showIndisponibilityModal = true;
       },
       eventClick: (info) => {
-        // Editar indisponibilidade existente
         const clickedIndisp = loggedInProfessor.indisponibilidades.find(indisp => indisp.id === info.event.id);
         if (clickedIndisp) {
           selectedIndisponibility = clickedIndisp;
@@ -529,7 +522,7 @@
           showIndisponibilityModal = true;
         }
       },
-      eventDrop: (info) => { // Ao arrastar uma indisponibilidade
+      eventDrop: (info) => {
         const newStart = info.event.start!;
         const newEnd = info.event.end!;
         const conflict = checkAvailabilityConflict({ start: newStart, end: newEnd }, info.event.id);
@@ -537,23 +530,21 @@
           info.revert();
           showNotification(conflict, 'error');
         } else {
-          // Atualiza a indisponibilidade no mock do professor
           const updatedIndisp = {
-              id: info.event.id,
-              start: newStart.toISOString(),
-              end: newEnd.toISOString(),
-              title: info.event.title,
-              type: info.event.extendedProps.type
+            id: info.event.id,
+            start: newStart.toISOString(),
+            end: newEnd.toISOString(),
+            title: info.event.title,
+            type: info.event.extendedProps.type
           };
           loggedInProfessor.indisponibilidades = loggedInProfessor.indisponibilidades.map(indisp =>
             indisp.id === updatedIndisp.id ? updatedIndisp : indisp
           );
-          // Sincroniza com o calendário de horário do professor
           syncIndisponibilityToScheduleCalendar(updatedIndisp, 'update');
           showNotification('Indisponibilidade movida com sucesso!', 'success');
         }
       },
-      eventResize: (info) => { // Ao redimensionar uma indisponibilidade
+      eventResize: (info) => {
         const newStart = info.event.start!;
         const newEnd = info.event.end!;
         const conflict = checkAvailabilityConflict({ start: newStart, end: newEnd }, info.event.id);
@@ -561,28 +552,24 @@
           info.revert();
           showNotification(conflict, 'error');
         } else {
-          // Atualiza a indisponibilidade no mock do professor
           const updatedIndisp = {
-              id: info.event.id,
-              start: newStart.toISOString(),
-              end: newEnd.toISOString(),
-              title: info.event.title,
-              type: info.event.extendedProps.type
+            id: info.event.id,
+            start: newStart.toISOString(),
+            end: newEnd.toISOString(),
+            title: info.event.title,
+            type: info.event.extendedProps.type
           };
           loggedInProfessor.indisponibilidades = loggedInProfessor.indisponibilidades.map(indisp =>
             indisp.id === updatedIndisp.id ? updatedIndisp : indisp
           );
-          // Sincroniza com o calendário de horário do professor
           syncIndisponibilityToScheduleCalendar(updatedIndisp, 'update');
           showNotification('Indisponibilidade redimensionada com sucesso!', 'success');
         }
-      },
+      }
     });
     calendarAvailability.render();
   });
 
-  // --- MOCK DE AULAS NÃO ATRIBUÍDAS STATIC PARA REVERTER AO EXCLUIR ---
-  // Não usado neste contexto, mas mantido para consistência
   interface AulaNaoAtribuida {
     id: string;
     title: string;
@@ -598,7 +585,6 @@
     };
   }
   const mockAulasNaoAtribuidasStatic: AulaNaoAtribuida[] = [];
-
 </script>
 
 <main class="min-h-screen bg-gray-50 p-8">
@@ -613,7 +599,15 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm overflow-hidden p-6">
-      <h2 class="text-2xl font-semibold text-gray-900 mb-4">Meu Horário Atual</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-semibold text-gray-900">Meu Horário Atual</h2>
+        <button
+          on:click={exportToExcel}
+          class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+        >
+          Exportar para Excel
+        </button>
+      </div>
       <div bind:this={calendarElSchedule} class="h-[600px]"></div>
     </div>
 
@@ -654,12 +648,12 @@
                    placeholder="Ex: Reunião de departamento, consulta médica" />
           </div>
           <div class="hidden">
-             <label for="indispType" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Indisponibilidade</label>
-             <select id="indispType" bind:value={indispType} class="w-full p-2 border border-gray-200 rounded-md">
-                 <option value="single">Evento Único</option>
-                 <option value="recurring">Recorrente Semanal</option>
-                 <option value="full-day">Dia Inteiro</option>
-             </select>
+            <label for="indispType" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Indisponibilidade</label>
+            <select id="indispType" bind:value={indispType} class="w-full p-2 border border-gray-200 rounded-md">
+              <option value="single">Evento Único</option>
+              <option value="recurring">Recorrente Semanal</option>
+              <option value="full-day">Dia Inteiro</option>
+            </select>
           </div>
         </div>
 
@@ -710,6 +704,7 @@
 </main>
 
 <style>
+  /* Existing styles remain unchanged */
   :global(.fc) {
     font-family: 'Inter', sans-serif;
   }
@@ -759,41 +754,31 @@
   :global(.fc .fc-timegrid-col) {
     background: #fff;
   }
-
-  /* --- Estilos para o Dashboard do Professor --- */
   :global(.teacher-lesson) {
-    background-color: #4f46e5 !important; /* Azul escuro para aulas */
+    background-color: #4f46e5 !important;
     border-color: #4f46e5 !important;
   }
-
   :global(.teacher-indisponibility) {
-    background-color: #a3a3a3 !important; /* Cinza para indisponibilidade */
+    background-color: #a3a3a3 !important;
     border-color: #808080 !important;
     opacity: 0.4;
     background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,.1) 5px, rgba(0,0,0,.1) 10px);
   }
-
-  /* Realce para slots inválidos ao arrastar/redimensionar (no calendário de indisponibilidades) */
   :global(.fc-timegrid-slot.fc-highlight-invalid) {
     background-color: rgba(255, 0, 0, 0.15) !important;
     border: 1px dashed red !important;
   }
-
-  /* Estilo para o evento "fantasma" (preview) quando em conflito */
   :global(.fc-event-dragging.fc-invalid-drop) {
-      background-color: rgba(255, 0, 0, 0.6) !important;
-      border-color: red !important;
+    background-color: rgba(255, 0, 0, 0.6) !important;
+    border-color: red !important;
   }
   :global(.fc-event-resizing.fc-invalid-drop) {
-      background-color: rgba(255, 0, 0, 0.6) !important;
-      border-color: red !important;
+    background-color: rgba(255, 0, 0, 0.6) !important;
+    border-color: red !important;
   }
-
-  /* Estilo do Toast Notification */
   .toast-notification {
     animation: fadeInOut 3s forwards;
   }
-
   @keyframes fadeInOut {
     0% { opacity: 0; transform: translateY(20px); }
     10% { opacity: 1; transform: translateY(0); }

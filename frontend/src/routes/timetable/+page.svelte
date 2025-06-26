@@ -63,7 +63,7 @@
   // --- DADOS MOCK ---
   const mockProfessores: Professor[] = [
     { id: 'p1', nome: 'Prof. João Silva', indisponibilidades: [
-      { start: '2025-04-07T11:00:00', end: '2025-04-07T12:00:00', title: 'Indisponível', display: 'background' },
+      { start: '2025-04-07T11:30:00', end: '2025-04-07T12:00:00', title: 'Indisponível', display: 'background' },
       { start: '2025-04-09T10:00:00', end: '2025-04-09T12:00:00', title: 'Indisponível', display: 'background' }
     ]},
     { id: 'p2', nome: 'Prof. Maria Costa', indisponibilidades: [
