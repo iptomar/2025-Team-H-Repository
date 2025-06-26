@@ -9,6 +9,7 @@ from app.database import get_session, init_db
 from app import models
 from app.schemas import classes as schemas
 from app.utils import get_password_hash
+from fastapi.middleware.cors import CORSMiddleware
 
 
 """
@@ -23,6 +24,14 @@ app = FastAPI(
     title="Horários IPT",
     description="Sistema de criação de horários",
     version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # Add your frontend URLs
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly include OPTIONS
+    allow_headers=["*"],
 )
 
 

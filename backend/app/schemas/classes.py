@@ -5,6 +5,8 @@ from enum import Enum
 
 
 # Enums
+
+
 class UserRole(str, Enum):
     Administrator = "Administrator"
     School_Timetable_Committee = "School_Timetable_Committee"
@@ -98,6 +100,18 @@ class User(UserBase):
     model_config = ConfigDict(from_attributes=True)
     user_id: int
     school: Optional[School] = None
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    user: User
 
 
 class CourseBase(BaseModel):
