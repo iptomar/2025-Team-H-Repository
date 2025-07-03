@@ -397,6 +397,31 @@ class ApiClient {
   async getSubjectClasses(subjectId: number): Promise<Class[]> {
     return this.request<Class[]>(`/subjects/${subjectId}/classes`);
   }
+
+  // Timetable event endpoints
+  async getEvents(): Promise<any[]> {
+    return this.request<any[]>('/timetable/events');
+  }
+
+  async createEvent(event: any): Promise<any> {
+    return this.request<any>('/timetable/events', {
+      method: 'POST',
+      body: JSON.stringify(event),
+    });
+  }
+
+  async updateEvent(eventId: number, event: any): Promise<any> {
+    return this.request<any>(`/timetable/events/${eventId}`, {
+      method: 'PUT',
+      body: JSON.stringify(event),
+    });
+  }
+
+  async deleteEvent(eventId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/timetable/events/${eventId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 // Create singleton instance

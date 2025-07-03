@@ -4,6 +4,7 @@
   import timeGridPlugin from '@fullcalendar/timegrid';
   import interactionPlugin from '@fullcalendar/interaction';
   import * as XLSX from 'xlsx'; // Import xlsx library
+  import { apiClient } from '$lib/api';
 
   // --- Existing interfaces and mock data remain unchanged ---
   interface Professor {
@@ -149,6 +150,9 @@
   let showToast = false;
   let toastMessage = '';
   let toastType: 'success' | 'error' | 'warning' = 'success';
+  let events = [];
+  let teachers = [];
+  let eventsByTeacher = {};
 
   function getCadeira(id: string) { return mockCadeiras.find(c => c.id === id); }
   function getGrupo(id: string) { return mockGrupos.find(g => g.id === id); }
@@ -448,7 +452,7 @@
   }
 
   // --- FullCalendar Setup (unchanged except for onMount) ---
-  onMount(() => {
+  onMount(async () => {
     const professorScheduledLessons = mockAulasAgendadas.filter(aula => aula.extendedProps.professorId === loggedInProfessor.id)
       .map(aula => ({
         ...aula,
@@ -606,6 +610,18 @@
       }
     });
     calendarAvailability.render();
+
+    events = await apiClient.getEvents();
+    // Assume you have a way to get all teachers
+    teachers = await apiClient.getTeachers ? await apiClient.getTeachers() : [];
+    // Group events by teacherId
+    eventsByTeacher = {};
+    for (const event of events) {
+      const tid = event.extendedProps?.professorId || event.professorId;
+      if (!tid) continue;
+      if (!eventsByTeacher[tid]) eventsByTeacher[tid] = [];
+      eventsByTeacher[tid].push(event);
+    }
   });
 
   interface AulaNaoAtribuida {
@@ -624,6 +640,11 @@
   }
   const mockAulasNaoAtribuidasStatic: AulaNaoAtribuida[] = [];
 </script>
+
+<div class="flex flex-col items-center justify-center min-h-[60vh]">
+  <h1 class="text-3xl font-bold mb-4 text-blue-700">Teachers</h1>
+  <p class="text-lg text-gray-700">This page will show teacher information and schedules soon.</p>
+</div>
 
 <main class="min-h-screen bg-gray-50 p-8">
   <div class="max-w-7xl mx-auto space-y-8">
@@ -737,6 +758,31 @@
         {/if}
       </svg>
       <span>{toastMessage}</span>
+    </div>
+  {/if}
+
+  <h1 class="text-2xl font-bold mb-6">Teachers' Schedules</h1>
+  {#if teachers.length === 0}
+    <p>No teachers found.</p>
+  {:else}
+    <div class="space-y-8">
+      {#each teachers as teacher}
+        <div class="bg-white rounded shadow p-4">
+          <h2 class="text-xl font-semibold mb-2">{teacher.nome}</h2>
+          {#if eventsByTeacher[teacher.id]?.length}
+            <ul class="list-disc ml-6">
+              {#each eventsByTeacher[teacher.id] as event}
+                <li class="mb-1">
+                  <span class="font-medium">{event.title}</span>
+                  <span class="text-gray-600 text-sm"> ({new Date(event.start).toLocaleString()} - {new Date(event.end).toLocaleString()})</span>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="text-gray-500">No scheduled events.</p>
+          {/if}
+        </div>
+      {/each}
     </div>
   {/if}
 </main>

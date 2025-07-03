@@ -3,6 +3,7 @@
   import { Calendar, type EventApi } from '@fullcalendar/core';
   import timeGridPlugin from '@fullcalendar/timegrid';
   import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
+  import { apiClient } from '$lib/api';
 
   // --- Variáveis de Estado ---
   let calendarEl: HTMLElement;
@@ -195,8 +196,8 @@
     toastType = type;
     showToast = true;
     setTimeout(() => {
-      showToast = false;
-    }, 3000); // Esconde a notificação após 3 segundos
+        showToast = false;
+    }); // Esconde a notificação após 3 segundos
   }
 
   // --- Funções de gerenciamento de indisponibilidades no calendário ---
@@ -432,16 +433,22 @@
       },
 
       // Chamado APÓS um drop bem-sucedido de evento existente
-      eventDrop: (info) => {
+      eventDrop: async (info) => {
         updateEvent(info.event);
-        clearProfessorIndisponibilities(); // Limpa as indisponibilidades após o drop
+        clearProfessorIndisponibilities();
         showNotification('Evento movido com sucesso!', 'success');
+        if (info.event.id) {
+          await saveEventToBackend(info.event);
+        }
       },
       // Chamado APÓS um resize bem-sucedido de evento existente
-      eventResize: (info) => {
+      eventResize: async (info) => {
         updateEvent(info.event);
-        clearProfessorIndisponibilities(); // Limpa as indisponibilidades após o resize
+        clearProfessorIndisponibilities();
         showNotification('Evento redimensionado com sucesso!', 'success');
+        if (info.event.id) {
+          await saveEventToBackend(info.event);
+        }
       },
 
       // Clicar numa área vazia do calendário
@@ -531,7 +538,34 @@
     event.setExtendedProp('groupId', grupo?.id);
   }
 
-  function saveEvent() {
+  // --- Fetch events from backend on mount ---
+  let events = [];
+  onMount(async () => {
+    events = await apiClient.getEvents();
+    // Add events to FullCalendar here
+    if (calendar) {
+      events.forEach(ev => {
+        if (!calendar.getEventById(ev.id)) {
+          calendar.addEvent(ev);
+        }
+      });
+    }
+  });
+
+  // --- Replace saveEventsToLocalStorage with API calls ---
+  async function saveEventToBackend(event) {
+    if (event.id) {
+      await apiClient.updateEvent(event.id, event);
+    } else {
+      await apiClient.createEvent(event);
+    }
+  }
+
+  async function deleteEventFromBackend(eventId) {
+    await apiClient.deleteEvent(eventId);
+  }
+
+  async function saveEvent() {
     const start = new Date(eventStart);
     const end = new Date(eventEnd);
 
@@ -587,13 +621,14 @@
       selectedEvent.setExtendedProp('groupId', selectedGrupoId);
       selectedEvent.setExtendedProp('isTempDragEvent', false); // Não é mais temporário
 
-      // Salva no localStorage
-      saveEventsToLocalStorage();
+      // Salva no backend
+      await saveEventToBackend(selectedEvent);
 
       showNotification('Agendamento editado com sucesso!', 'success');
     } else {
       // Adicionar novo evento
       // Se veio de drag-and-drop, o evento já está no calendário (tempEventId)
+      let newEvent = null;
       if (tempEventId) {
           const eventToUpdate = calendar.getEventById(tempEventId);
           if (eventToUpdate) {
@@ -607,71 +642,39 @@
               eventToUpdate.setExtendedProp('groupId', selectedGrupoId);
               eventToUpdate.setExtendedProp('isTempDragEvent', false); // Não é mais temporário
               eventId = eventToUpdate.id;
+              newEvent = eventToUpdate;
           }
-      } else {
-          // Se não veio de drag-and-drop (e.g., clique em data)
-          const newEvent = calendar.addEvent({
-              id: String(eventIdCounter++),
-              title,
-              start,
-              end,
-              backgroundColor: eventColor,
-              extendedProps: {
-                  professorId: selectedProfessorId,
-                  salaId: selectedSalaId,
-                  cadeiraId: selectedCadeiraId,
-                  groupId: selectedGrupoId,
-                  isTempDragEvent: false
-              }
-          });
-          eventId = newEvent?.id ?? null;
+      }
+      // Se não veio de drag-and-drop (e.g., clique em data)
+      if (!newEvent) {
+        newEvent = calendar.addEvent({
+            id: String(eventIdCounter++),
+            title,
+            start,
+            end,
+            backgroundColor: eventColor,
+            extendedProps: {
+                professorId: selectedProfessorId,
+                salaId: selectedSalaId,
+                cadeiraId: selectedCadeiraId,
+                groupId: selectedGrupoId,
+                isTempDragEvent: false
+            }
+        });
+        eventId = newEvent?.id ?? null;
       }
       // AGORA A REMOÇÃO DA SIDEBAR ACONTECE APENAS AQUI, após o sucesso do saveEvent
       if (draggedAula && aulasNaoAtribuidas.some(aula => aula.id === draggedAula!.id)) {
         aulasNaoAtribuidas = aulasNaoAtribuidas.filter(aula => aula.id !== draggedAula!.id);
       }
 
-      // Salva no localStorage
-      saveEventsToLocalStorage();
+      // Salva no backend
+      await saveEventToBackend(newEvent);
 
       showNotification('Agendamento criado com sucesso!', 'success');
     }
     closeModal();
   }
-
-  // Salva todos os eventos do calendário no localStorage
-  function saveEventsToLocalStorage() {
-    if (!calendar) return;
-    const events = calendar.getEvents()
-      .filter(e => !e.extendedProps.isIndisponibilidade)
-      .map(e => ({
-        id: e.id,
-        title: e.title,
-        start: e.start?.toISOString(),
-        end: e.end?.toISOString(),
-        backgroundColor: e.backgroundColor,
-        extendedProps: e.extendedProps
-      }));
-    localStorage.setItem('timetableEvents', JSON.stringify(events));
-  }
-
-  // Carrega eventos do localStorage ao iniciar
-  onMount(() => {
-    const saved = localStorage.getItem('timetableEvents');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          parsed.forEach(ev => {
-            // Evita duplicar eventos já existentes (ex: initialEvents)
-            if (!calendar.getEventById(ev.id)) {
-              calendar.addEvent(ev);
-            }
-          });
-        }
-      } catch {}
-    }
-  });
 
   function deleteEvent() {
     if (selectedEvent) {
@@ -684,7 +687,8 @@
         }
       }
       selectedEvent.remove();
-      saveEventsToLocalStorage(); // Atualiza o localStorage após remover o evento
+      // Atualiza o backend após remover o evento
+      deleteEventFromBackend(selectedEvent.id);
       showNotification('Agendamento excluído com sucesso.', 'success');
     }
     closeModal();
@@ -883,10 +887,10 @@
                         class:font-semibold={sala.especial && sala.cursoResponsavelId && sala.cursoResponsavelId !== grupoInfo?.cursoId}>
                   {sala.nome} ({sala.capacidade} pax)
                   {#if grupoInfo && grupoInfo.numAlunos > sala.capacidade}
-                    <span class="text-xs">(Capacidade Excedida!)</span>
+                    (Capacidade Excedida!)
                   {/if}
                   {#if sala.especial && sala.cursoResponsavelId && sala.cursoResponsavelId !== grupoInfo?.cursoId}
-                    <span class="text-xs">(Sala Especial de {getCurso(sala.cursoResponsavelId)?.nome})</span>
+                    (Sala Especial de {getCurso(sala.cursoResponsavelId)?.nome})
                   {/if}
                 </option>
               {/each}
