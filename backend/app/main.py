@@ -5,8 +5,9 @@ from datetime import datetime
 
 from app.routes import auth
 from app.routes import classes
+from app.routes import timetable
 from app.database import get_session, init_db
-from app import models
+from app.models import models
 from app.schemas import classes as schemas
 from app.utils import get_password_hash
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +41,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(classes.router)
+app.include_router(timetable.router)
 
 @app.post("/locations/", response_model=schemas.Location)
 def create_location(location: schemas.LocationCreate, db: Session = Depends(get_session)):

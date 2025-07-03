@@ -42,8 +42,9 @@ def get_session():
 # Initialize database tables
 def init_db():
     """Create all tables in the database"""
+    from app.models import models  # Ensure all models are imported
     from app.models import Base
-
+    print('Tables SQLAlchemy will create:', list(Base.metadata.tables.keys()))
     Base.metadata.create_all(bind=engine)
 
 
@@ -102,3 +103,21 @@ def create_admin_user(username: str, password: str):
         else:
             print(f"Admin user '{username}' already exists")
         return admin
+
+
+def seed_schools():
+    from app.models.models import School, Location
+    from app.database import get_session
+    session = next(get_session())
+    # Add campuses
+    tomar = Location(name="Tomar", is_campus=True)
+    abrantes = Location(name="Abrantes", is_campus=True)
+    session.add_all([tomar, abrantes])
+    session.commit()
+    # Add schools
+    estt = School(name="ESTT", location_id=tomar.location_id)
+    esgt = School(name="ESGT", location_id=tomar.location_id)
+    esta = School(name="ESTA", location_id=abrantes.location_id)
+    session.add_all([estt, esgt, esta])
+    session.commit()
+    print("Seeded campuses and schools.")

@@ -7,6 +7,7 @@
 	import { UserRole } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { isAuthenticated } from '$lib/stores/auth';
 
 	let className: string | undefined | null = undefined;
 	export { className as class };
@@ -28,8 +29,12 @@
 	onMount(async () => {
 		try {
 			schoolsList = await schools.getAll();
+			if (!schoolsList.length) {
+				error = 'No schools found. Please contact admin.';
+			}
 			coursesList = await courses.getAll();
 		} catch (err) {
+			error = 'Failed to load schools.';
 			console.error('Failed to load data:', err);
 		}
 	});
@@ -93,13 +98,13 @@
 
 			const newUser = await auth.register(userData);
 			
-			success = 'Registration successful! You can now login.';
+			success = 'Registration successful! Redirecting...';
 			console.log('User registered:', newUser);
-			
-			// Redirect to login page after successful registration
+			// Set auth state and redirect to timetable
+			isAuthenticated.set(true);
 			setTimeout(() => {
-				goto('/login');
-			}, 2000);
+				goto('/timetable');
+			}, 1000);
 			
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Registration failed';

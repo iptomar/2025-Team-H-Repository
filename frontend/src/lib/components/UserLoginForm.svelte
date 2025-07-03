@@ -5,6 +5,7 @@
 	import { cn } from '$lib/utils';
 	import { auth } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { isAuthenticated } from '$lib/stores/auth';
 
 	let className: string | undefined | null = undefined;
 	export { className as class };
@@ -24,9 +25,12 @@
 				password: password
 			});
 
-			// Login successful - redirect to dashboard or home page
+			// Login successful - set auth state and redirect
+			isAuthenticated.set(true);
 			console.log('Login successful:', loginResponse.user);
-			await goto('/timetable'); // or wherever you want to redirect
+			localStorage.setItem('access_token', loginResponse.access_token);
+			localStorage.setItem('username', email);
+			await goto('/home');
 			
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Login failed';
@@ -72,7 +76,7 @@
 				</div>
 			{/if}
 			
-			<Button type="submit" disabled={isLoading || !email || !password}>
+			<Button type="submit" class="w-full" disabled={isLoading}>
 				{#if isLoading}
 					Logging in...
 				{:else}
